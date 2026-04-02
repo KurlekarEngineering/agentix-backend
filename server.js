@@ -53,7 +53,11 @@ app.post("/chat", async (req, res) => {
   res.json(data);
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
+
+app.get("/", (req, res) => {
+  res.send("Agentix backend is LIVE 🚀");
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
