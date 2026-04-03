@@ -9,9 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ================= DATABASE =================
-mongoose.connect(process.env.MONGO_URI);
+// ================= SAFE DATABASE =================
+mongoose.connect(process.env.MONGO_URI || "")
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.log("❌ MongoDB Error:", err.message));
 
+// ================= USER MODEL =================
 const UserSchema = new mongoose.Schema({
   email: String,
   isPaid: { type: Boolean, default: false },
@@ -21,35 +24,41 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 
 // ================= RAZORPAY =================
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const razorpay = process.env.RAZORPAY_KEY_ID
+  ? new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+  : null;
 
-// ================= AI (CLAUDE) =================
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_KEY,
-});
+// ================= AI =================
+const anthropic = process.env.ANTHROPIC_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_KEY })
+  : null;
 
 // ================= ROUTES =================
 
-// 🔹 Health check
+// 🔹 Health
 app.get("/", (req, res) => {
-  res.send("Agentix backend is LIVE 🚀");
+  res.send("🚀 Agentix backend LIVE");
 });
 
 // 💳 Create Order
 app.post("/create-order", async (req, res) => {
   try {
+    if (!razorpay) {
+      return res.status(500).json({ error: "Razorpay not configured" });
+    }
+
     const order = await razorpay.orders.create({
-      amount: 800000, // ₹8000
+      amount: 800000,
       currency: "INR",
     });
 
     res.json(order);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Order creation failed");
+    console.error("Order Error:", err.message);
+    res.status(500).json({ error: "Order failed" });
   }
 });
 
@@ -66,7 +75,7 @@ app.post("/verify-payment", async (req, res) => {
     const body = razorpay_order_id + "|" + razorpay_payment_id;
 
     const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
       .update(body)
       .digest("hex");
 
@@ -85,12 +94,12 @@ app.post("/verify-payment", async (req, res) => {
       return res.status(400).json({ success: false });
     }
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Verification failed");
+    console.error("Verify Error:", err.message);
+    res.status(500).json({ error: "Verification failed" });
   }
 });
 
-// 🤖 AI CHAT (PROTECTED + REAL AI)
+// 🤖 AI CHAT
 app.post("/chat", async (req, res) => {
   try {
     const { email, message } = req.body;
@@ -103,11 +112,18 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    const aiResponse = await anthropic.messages.create({
+    // fallback if AI not configured
+    if (!anthropic) {
+      return res.json({
+        reply: "AI not configured yet",
+      });
+    }
+
+    const aiRes = await anthropic.messages.create({
       model: "claude-3-sonnet-20240229",
       max_tokens: 300,
       system:
-        "You are an AI assistant helping Indian businesses with sales, quotations, and customer replies.",
+        "You help Indian businesses with sales, quotations, and customer replies.",
       messages: [
         {
           role: "user",
@@ -116,12 +132,12 @@ app.post("/chat", async (req, res) => {
       ],
     });
 
-    const reply = aiResponse.content[0].text;
+    const reply = aiRes.content[0].text;
 
     res.json({ reply });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("AI error");
+    console.error("AI Error:", err.message);
+    res.status(500).json({ error: "AI failed" });
   }
 });
 
@@ -129,5 +145,5 @@ app.post("/chat", async (req, res) => {
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("🚀 Server running on port", PORT);
 });
