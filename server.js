@@ -3,130 +3,131 @@ import cors from "cors";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import Anthropic from "@anthropic-ai/sdk";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ DATABASE
-mongoose.connect("YOUR_MONGO_URI");
+// ================= DATABASE =================
+mongoose.connect(process.env.MONGO_URI);
 
-// ✅ USER MODEL
-const User = mongoose.model("User", {
+const UserSchema = new mongoose.Schema({
   email: String,
-  isPaid: Boolean,
+  isPaid: { type: Boolean, default: false },
   expiry: Date,
 });
 
-// ✅ RAZORPAY
+const User = mongoose.model("User", UserSchema);
+
+// ================= RAZORPAY =================
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// 💳 CREATE ORDER
-app.post("/create-order", async (req, res) => {
-  const order = await razorpay.orders.create({
-    amount: 800000, // ₹8000
-    currency: "INR",
-  });
-
-  res.json(order);
+// ================= AI (CLAUDE) =================
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_KEY,
 });
 
-// 🔐 VERIFY PAYMENT
-app.post("/verify-payment", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, email } = req.body;
+// ================= ROUTES =================
 
-  const body = razorpay_order_id + "|" + razorpay_payment_id;
-
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(body)
-    .digest("hex");
-
-  if (expected === razorpay_signature) {
-    await User.findOneAndUpdate(
-      { email },
-      {
-        isPaid: true,
-        expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-      { upsert: true }
-    );
-
-    res.json({ success: true });
-  } else {
-    res.status(400).json({ success: false });
-  }
-});
-
-// 🤖 AI ROUTE (PROTECTED)
-app.post("/chat", async (req, res) => {
-  const { email, message } = req.body;
-
-  const user = await User.findOne({ email });
-
-  if (!user || !user.isPaid || user.expiry < new Date()) {
-    return res.status(403).json({ error: "Payment required" });
-  }
-
-  // SIMPLE AI RESPONSE (replace later with real AI)
-  res.json({
-    reply: "AI response for: " + message,
-  });
-});
-
-// TEST
+// 🔹 Health check
 app.get("/", (req, res) => {
-  res.send("LIVE 🚀");
+  res.send("Agentix backend is LIVE 🚀");
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0");
+// 💳 Create Order
+app.post("/create-order", async (req, res) => {
+  try {
+    const order = await razorpay.orders.create({
+      amount: 800000, // ₹8000
+      currency: "INR",
+    });
 
-<input
-  placeholder="Enter email"
-  onChange={(e) => setEmail(e.target.value)}
-/>
+    res.json(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Order creation failed");
+  }
+});
 
-    if (!isPaid) {
-  return <button onClick={payNow}>Pay ₹8000</button>;
-}
-const payNow = async () => {
-  const res = await fetch("/create-order", { method: "POST" });
-  const order = await res.json();
-
-  const options = {
-    key: "YOUR_KEY",
-    order_id: order.id,
-    handler: async (response) => {
-      await fetch("/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...response, email }),
-      });
-
-      alert("Payment success");
-      window.location.reload();
-    },
-  };
-
-  const rzp = new window.Razorpay(options);
-  rzp.open();
-};
-const sendMessage = async () => {
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+// 🔐 Verify Payment
+app.post("/verify-payment", async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
       email,
-      message: input,
-    }),
-  });
+    } = req.body;
 
-  const data = await res.json();
-  setMessages([...messages, data.reply]);
-};
-mongoose.connect("YOUR_MONGO_URI");
-"AI response for: " + message
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (expected === razorpay_signature) {
+      await User.findOneAndUpdate(
+        { email },
+        {
+          isPaid: true,
+          expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        { upsert: true }
+      );
+
+      return res.json({ success: true });
+    } else {
+      return res.status(400).json({ success: false });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Verification failed");
+  }
+});
+
+// 🤖 AI CHAT (PROTECTED + REAL AI)
+app.post("/chat", async (req, res) => {
+  try {
+    const { email, message } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user || !user.isPaid || user.expiry < new Date()) {
+      return res.status(403).json({
+        error: "Payment required",
+      });
+    }
+
+    const aiResponse = await anthropic.messages.create({
+      model: "claude-3-sonnet-20240229",
+      max_tokens: 300,
+      system:
+        "You are an AI assistant helping Indian businesses with sales, quotations, and customer replies.",
+      messages: [
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+    });
+
+    const reply = aiResponse.content[0].text;
+
+    res.json({ reply });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("AI error");
+  }
+});
+
+// ================= SERVER =================
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
