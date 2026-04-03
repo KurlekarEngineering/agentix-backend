@@ -84,3 +84,49 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0");
+
+<input
+  placeholder="Enter email"
+  onChange={(e) => setEmail(e.target.value)}
+/>
+
+    if (!isPaid) {
+  return <button onClick={payNow}>Pay ₹8000</button>;
+}
+const payNow = async () => {
+  const res = await fetch("/create-order", { method: "POST" });
+  const order = await res.json();
+
+  const options = {
+    key: "YOUR_KEY",
+    order_id: order.id,
+    handler: async (response) => {
+      await fetch("/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...response, email }),
+      });
+
+      alert("Payment success");
+      window.location.reload();
+    },
+  };
+
+  const rzp = new window.Razorpay(options);
+  rzp.open();
+};
+const sendMessage = async () => {
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      message: input,
+    }),
+  });
+
+  const data = await res.json();
+  setMessages([...messages, data.reply]);
+};
+mongoose.connect("YOUR_MONGO_URI");
+"AI response for: " + message
