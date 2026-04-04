@@ -16,7 +16,30 @@ app.post("/chat", async (req, res) => {
   try {
     const { messages, system } = req.body;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await const res = await fetch("https://your-backend-url.onrender.com/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    messages: history,
+    system: agent.system
+  })
+});
+
+const data = await res.json();
+
+const reply =
+  data?.content?.[0]?.text ||
+  "Something went wrong. Try again.";
+
+setChats(p => ({
+  ...p,
+  [agent.id]: [
+    ...history,
+    { role: "assistant", content: reply }
+  ]
+}));, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
