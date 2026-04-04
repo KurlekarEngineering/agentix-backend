@@ -6,20 +6,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// HEALTH CHECK
+app.get("/", (req, res) => {
+  res.send("Buddy AI Backend Running 🚀");
+});
+
+// CHAT API
 app.post("/chat", async (req, res) => {
   try {
     const { messages, system } = req.body;
 
-    const response = await fetch("https://your-backend-url.onrender.com/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    messages: history,
-    system: agent.system
-  })
-}); {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -35,12 +32,17 @@ app.post("/chat", async (req, res) => {
     });
 
     const data = await response.json();
+
     res.json(data);
 
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server Error" });
   }
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log("Server running"));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
