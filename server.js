@@ -3,43 +3,19 @@ import cors from "cors";
 import fetch from "node-fetch";
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// HEALTH CHECK
 app.get("/", (req, res) => {
-  res.send("Buddy AI Backend Running 🚀");
+  res.send("Buddy AI Backend Running ✅");
 });
 
-// CHAT API
 app.post("/chat", async (req, res) => {
   try {
     const { messages, system } = req.body;
 
-    const response = await const res = await fetch("https://your-backend-url.onrender.com/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    messages: history,
-    system: agent.system
-  })
-});
-
-const data = await res.json();
-
-const reply =
-  data?.content?.[0]?.text ||
-  "Something went wrong. Try again.";
-
-setChats(p => ({
-  ...p,
-  [agent.id]: [
-    ...history,
-    { role: "assistant", content: reply }
-  ]
-}));, {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,12 +36,12 @@ setChats(p => ({
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server Error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("Server running on port", PORT);
 });
