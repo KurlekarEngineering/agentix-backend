@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Agentix AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body style="font-family: Arial; padding: 20px; text-align: center;">
+
+<h2>AI for Business Owners 💰</h2>
+
+<p>This AI helps you:</p>
+<p>✅ Write quotations instantly</p>
+<p>✅ Reply to customers</p>
+<p>✅ Save hours of work</p>
+
+<p><b>Price: ₹8000/month</b></p>
+
+<input id="email" placeholder="Enter your email" style="padding:10px;width:250px;" />
+<br><br>
+
+<button onclick="pay()" style="padding:10px 20px;">Unlock AI</button>
+
+<hr style="margin:30px 0">
+
+<h3>Ask AI</h3>
+
+<input id="msg" placeholder="Ask something..." style="padding:10px;width:250px;" />
+<br><br>
+
+<button onclick="chat()" style="padding:10px 20px;">Send</button>
+
+<p id="response" style="margin-top:20px;"></p>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+const API = "https://your-render-url.onrender.com"; // 🔥 PUT YOUR REAL URL
+
+// 💳 PAYMENT
+async function pay() {
+  const email = document.getElementById("email").value;
+
+  if (!email) {
+    alert("Enter email first");
+    return;
+  }
+
+  const res = await fetch(API + "/create-order", {
+    method: "POST"
+  });
+
+  const order = await res.json();
+
+  const options = {
+    key: "rzp_test_xxxxx", // 🔥 YOUR KEY
+    amount: order.amount,
+    currency: "INR",
+    order_id: order.id,
+
+    handler: async function (response) {
+      await fetch(API + "/verify-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...response,
+          email
+        })
+      });
+
+      alert("Payment successful 🚀 Now you can use AI");
+    }
+  };
+
+  const rzp = new Razorpay(options);
+  rzp.open();
+}
+
+// 🤖 CHAT
+async function chat() {
+  const email = document.getElementById("email").value;
+  const message = document.getElementById("msg").value;
+
+  if (!email || !message) {
+    alert("Enter email and message");
+    return;
+  }
+
+  const res = await fetch(API + "/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email,
+      message
+    })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("response").innerText =
+    data.reply || data.error;
+}
+</script>
+
+</body>
+</html>
